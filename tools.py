@@ -20,6 +20,9 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
+import json
+import re
+
 import config  # noqa: F401 — you'll use this in search_listings
 from generate import generate
 from utils.data_loader import load_listings
@@ -78,8 +81,31 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    query_terms = set(re.findall(r"[a-z0-9]+", description.lower()))
+    size_query = size.strip().lower() if size else None
+    matches = []
+
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+
+        if size_query and not re.search(
+            rf"(?<![a-z0-9]){re.escape(size_query)}(?![a-z0-9])",
+            listing["size"].lower(),
+        ):
+            continue
+
+        searchable_text = " ".join(
+            str(listing.get(field) or "")
+            for field in ("title", "description", "category", "style_tags", "colors", "brand", "platform")
+        ).lower()
+        listing_terms = set(re.findall(r"[a-z0-9]+", searchable_text))
+        score = len(query_terms & listing_terms)
+        if score:
+            matches.append((score, listing))
+
+    matches.sort(key=lambda match: match[0], reverse=True)
+    return [listing for _, listing in matches[: config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +138,34 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    wardrobe_items = wardrobe.get("items", [])
+    item_details = json.dumps(new_item, ensure_ascii=True, sort_keys=True)
+
+    if not wardrobe_items:
+        prompt = (
+            "Suggest one or two outfit ideas for this thrifted item. The user "
+            "has no wardrobe items entered yet, so give general styling advice "
+            "and name complementary pieces they could look for.\n\n"
+            f"New item:\n{item_details}"
+        )
+    else:
+        wardrobe_details = json.dumps(wardrobe_items, ensure_ascii=True, sort_keys=True)
+        prompt = (
+            "Suggest one or two complete outfits for the new thrifted item, "
+            "using pieces from the user's wardrobe whenever they fit. Name the "
+            "wardrobe pieces explicitly and do not invent owned items.\n\n"
+            f"New item:\n{item_details}\n\n"
+            f"User wardrobe items:\n{wardrobe_details}"
+        )
+
+    response = generate(
+        prompt,
+        system=(
+            "You are a practical personal stylist. Keep suggestions specific, "
+            "wearable, and concise."
+        ),
+    ).strip()
+    return response or "No outfit suggestions were generated."
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +204,23 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return "No fit card can be created without an outfit suggestion."
+
+    item_details = json.dumps(new_item, ensure_ascii=True, sort_keys=True)
+    prompt = (
+        "Write a social-media fit caption in 2 to 4 sentences for this thrift "
+        "find and outfit. Mention the item, its price, and its platform once "
+        "each, and make the vibe specific. Sound like a real post, not a product "
+        "description.\n\n"
+        f"Item:\n{item_details}\n\n"
+        f"Outfit:\n{outfit.strip()}"
+    )
+    response = generate(
+        prompt,
+        system=(
+            "You write concise, natural fashion captions. Follow the requested "
+            "sentence count and include every required fact."
+        ),
+    ).strip()
+    return response or "No fit card was generated."

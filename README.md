@@ -121,17 +121,17 @@ $ python app.py ask '...'
 
 ```
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+[('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0), ('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0), ('lst_017', 'Mesh Long-Sleeve Top — Black', 15.0), ('lst_033', 'Vintage Band Tee — Faded Grey', 19.0), ('lst_011', 'Low-Rise Cargo Pants — Khaki', 27.0), ('lst_015', 'Vintage Graphic Hoodie — Faded Black', 26.0)]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
-
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(' '.join(suggest_outfit(load_listings()[0], get_example_wardrobe()).split()))"
+Here are two complete outfits featuring your new Levi's 501 jeans: **Outfit 1: Casual Streetwear** * **New Item:** Levi's 501 Jeans * **Top:** White ribbed tank top (w_003) tucked in * **Outerwear:** Oversized grey crewneck sweatshirt (w_004) layered over * **Shoes:** Chunky white sneakers (w_007) * **Accessories:** Black crossbody bag (w_010) **Outfit 2: Edgy Denim-on-Denim** * **New Item:** Levi's 501 Jeans * **Top:** Black cropped zip hoodie (w_005) * **Outerwear:** Vintage black denim jacket (w_006) * **Shoes:** Black combat boots (w_008) * **Accessories:** Brown leather belt (w_009) and black crossbody bag (w_010)
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(' '.join(create_fit_card('white ribbed tank top, oversized grey crewneck sweatshirt, chunky white sneakers, and black crossbody bag', load_listings()[0]).split()))"
+Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed with the knee fading. Threw them on with a chunky white sneaker and an oversized grey crewneck for the ultimate effortless morning coffee run fit. Nothing beats finding broken-in vintage denim that actually fits right.
 ```
 
 ---
