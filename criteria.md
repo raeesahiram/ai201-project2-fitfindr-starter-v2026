@@ -25,9 +25,9 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+
+I chose 4 of 5 because the search uses plain keyword matching, so a valid
+request can still miss when its phrasing does not overlap the listing data.
 
 ---
 
@@ -37,8 +37,9 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+
+I chose 5 of 5 because once the search returns an empty list, the branch is
+deterministic and should always stop before calling `suggest_outfit`.
 
 ---
 
@@ -55,8 +56,15 @@ Given a query that matches no listings, the agent stops before calling
      suggest_outfit is the shape you're after. -->
 
 
+For 5 of 5 matching queries, the listing `id` stored as the selected item in
+the session is the same `id` in the `new_item` received by `suggest_outfit`.
+
 
 **Why this target:**
+
+The item ID is a stable value that can be compared directly, so this catches
+the loop accidentally passing a different listing even when all the tools
+return successfully.
 
 
 
@@ -76,8 +84,15 @@ Given a query that matches no listings, the agent stops before calling
      be turned into a number. -->
 
 
+Across 5 runs with the same valid item and outfit, every fit card is 2–4
+sentences and mentions the item, its price, and its platform; different
+wording between runs is acceptable as long as those requirements hold.
+
 
 **Why this target:**
+
+The model may vary its wording, but the caption's required facts and usable
+length should remain consistent on every run.
 
 
 
@@ -93,8 +108,14 @@ Given a query that matches no listings, the agent stops before calling
      or an observable outcome. -->
 
 
+For 5 of 5 searches with a maximum price, every returned listing has a price
+less than or equal to that ceiling.
+
 
 **Why this target:**
+
+The price ceiling is an explicit user constraint, so returning an over-budget
+listing would make an otherwise relevant result unusable.
 
 
 
