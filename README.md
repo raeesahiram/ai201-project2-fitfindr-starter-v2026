@@ -41,6 +41,12 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr takes a natural-language request for a secondhand clothing item, such
+as a vintage graphic tee under a stated price. It parses the description, size,
+and price ceiling, then searches and ranks matching listing records. For the
+best match, it suggests outfits using the user's wardrobe and writes a short
+fit-card caption; if nothing matches, it stops with advice about what to
+change.
 
 
 ---
@@ -147,15 +153,21 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked AI to inspect the listing fields, six complete
+     records, and the wardrobe schema before implementing the tools.
+- *What came back:* It identified the exact listing and wardrobe field names,
+     including that an empty wardrobe is `{"items": []}`.
+- *What I changed:* I used those facts to document typed inputs, concrete
+     return values, and empty cases in the Tool Inventory before coding.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked AI to test both the matching and impossible query
+     paths and check that the selected item reached `suggest_outfit` unchanged.
+- *What came back:* The happy path completed all three tools, while the empty
+     path left `fit_card` as `None` and returned an actionable error.
+- *What I changed:* I made each tool read its input back from the session and
+     added the explicit early-stop branch for an empty search result.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
