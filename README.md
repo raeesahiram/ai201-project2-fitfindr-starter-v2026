@@ -97,9 +97,9 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Regular expressions extract `size` and an inclusive `max_price`; the remaining text becomes the description.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** The parsed query goes to `search_listings`; its results become `search_results`, the first result becomes `selected_item`, and that item plus the wardrobe move through `suggest_outfit` and `create_fit_card`.
 
 ---
 
