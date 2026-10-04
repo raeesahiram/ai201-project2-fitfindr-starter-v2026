@@ -250,14 +250,16 @@ search_result_prices: lst_002=$18.0, lst_006=$24.0, lst_017=$15.0, lst_033=$19.0
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes all three tools | 4 of 5 | MET (5/5) | All five runs returned a fit card. |
+| 2 | Impossible query stops before tool 2 | 5 of 5 | MET (5/5) | All five returned guidance after an empty search; no outfit call appeared in the trace. |
+| 3 | Selected item ID reaches outfit tool | 5 of 5 | MET (5/5) | All five sessions selected `lst_005`; each outfit trace recorded `new_item id=lst_005`. |
+| 4 | Fit card includes item, price, platform, and 2–4 sentences | 5 of 5 | MET (5/5) | Same item and fixed outfit; all five cards met the sentence and content checks. |
+| 5 | Search respects price ceiling | 5 of 5 | MET (5/5) | All six returned listings were at or below $30 in each of five searches. |
 
 **Diagnoses**
 
+
+No misses: all five criteria met their targets. Criterion 1 is the one I would tighten next: its 4-of-5 target was exceeded, but the five tries repeat one query and do not test the phrasing variation named in its rationale. A stronger next test would use five distinct matching phrasings and require 5 of 5 completions.
 
 
 ---
