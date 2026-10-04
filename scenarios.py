@@ -15,9 +15,16 @@ own criteria need — these are a starting point, not a fixed set.
 
 SCENARIOS = [
     {
-        # A query the data can match. Criterion 1.
+        # Five distinct matching phrasings test the search's wording sensitivity.
         "name": "matching query completes",
         "query": "vintage graphic tee under $30",
+        "queries": [
+            "vintage graphic tee under $30",
+            "butterfly baby tee below $25",
+            "graphic tee 2003 tour bootleg under $30",
+            "oversized flannel shirt red black under $40",
+            "chunky brown knit cardigan under $60",
+        ],
         "wardrobe": "example",
         "criterion": 1,
     },
@@ -61,6 +68,12 @@ def validate() -> list[str]:
     for i, scenario in enumerate(SCENARIOS, 1):
         if not scenario.get("query", "").strip():
             problems.append(f"scenario {i} has no query")
+        queries = scenario.get("queries")
+        if queries is not None:
+            if not isinstance(queries, list) or len(queries) != 5:
+                problems.append(f"scenario {i} must have exactly five query variants")
+            elif any(not isinstance(query, str) or not query.strip() for query in queries):
+                problems.append(f"scenario {i} has an empty query variant")
         if scenario.get("wardrobe") not in WARDROBES:
             problems.append(
                 f"scenario {i} has wardrobe {scenario.get('wardrobe')!r} — "

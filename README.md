@@ -259,7 +259,7 @@ search_result_prices: lst_002=$18.0, lst_006=$24.0, lst_017=$15.0, lst_033=$19.0
 **Diagnoses**
 
 
-No misses: all five criteria met their targets. Criterion 1 is the one I would tighten next: its 4-of-5 target was exceeded, but the five tries repeat one query and do not test the phrasing variation named in its rationale. A stronger next test would use five distinct matching phrasings and require 5 of 5 completions.
+No misses: all five criteria met their targets. Criterion 1 was the one to tighten: the before run passed 5/5 but repeated one query, so it did not test the phrasing variation in its rationale. I revised it to require five distinct matching phrasings and 5/5 completions; the after run tests those phrasings.
 
 
 ---
@@ -333,23 +333,38 @@ call returned the same list of listing dicts as the direct implementation.
 
 **What I changed:**
 
+Revised criterion 1 to test five distinct matching query phrasings and require all five to complete. The evaluator assigns one phrasing per try; the agent and other scenarios are unchanged.
+
 **Which failure it was meant to fix:**
+
+The before run passed 5/5 using the same query each time, leaving the stated keyword-phrasing risk untested.
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools (five phrasings) | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item ID reaches outfit tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card facts and length | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Search respects price ceiling | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+Source report: `results/run_2026-10-04_1840_after.md` (`run_eval.py::write_report`).
+
+Criterion 1 queries, in try order: `vintage graphic tee under $30`; `butterfly baby tee below $25`; `graphic tee 2003 tour bootleg under $30`; `oversized flannel shirt red black under $40`; `chunky brown knit cardigan under $60`.
+
+Criterion 1, try 1 — `tools.py::create_fit_card`:
+
+```
+Scored this adorable Y2K butterfly baby tee for just $18 on depop and I'm obsessed with the early 2000s fit. Paired it today with baggy straight-leg jeans and a black denim jacket for the ultimate off-duty streetwear look.
+```
 
 **Did it help, and how do I know:**
 
 <!-- If it made things worse, say that. Honestly reported, that earns full
      credit and is more interesting than one that worked. -->
 
+It helped the test coverage, not agent behavior: completion stayed 5/5, now across five distinct matching phrasings instead of one repeated query. Caching was off for the after run (35 model calls), so the result reflects fresh runs. This gives better evidence for the diagnosed wording risk, though five phrasings are still a small sample.
 
 
 ---

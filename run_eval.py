@@ -51,7 +51,13 @@ def run_once(scenario, use_trace=True):
     if use_trace:
         trace_module.start_trace()
 
-    record = {"error": None, "session": None, "trace": "", "crashed": None}
+    record = {
+        "query": scenario["query"],
+        "error": None,
+        "session": None,
+        "trace": "",
+        "crashed": None,
+    }
     try:
         fixed_outfit = scenario.get("fixed_outfit")
         if fixed_outfit is None:
@@ -67,6 +73,13 @@ def run_once(scenario, use_trace=True):
         record["trace"] = trace_module.get_trace()
 
     return record
+
+
+def _scenario_for_try(scenario, attempt):
+    queries = scenario.get("queries")
+    if not queries:
+        return scenario
+    return {**scenario, "query": queries[(attempt - 1) % len(queries)]}
 
 
 def main():
@@ -97,11 +110,17 @@ def main():
     rows = []
     for scenario in scenario_module.SCENARIOS:
         print(f"{scenario['name']}  ({scenario['wardrobe']} wardrobe)")
-        print(f"  query: {scenario['query']}")
+        if scenario.get("queries"):
+            print("  queries (one per try):")
+            for query in scenario["queries"]:
+                print(f"    {query}")
+        else:
+            print(f"  query: {scenario['query']}")
 
         tries = []
         for attempt in range(1, args.tries + 1):
-            record = run_once(scenario)
+            trial_scenario = _scenario_for_try(scenario, attempt)
+            record = run_once(trial_scenario)
             tries.append(record)
 
             if record["crashed"]:
@@ -178,15 +197,28 @@ def write_report(rows, args):
 
     for row in rows:
         scenario = row["scenario"]
-        lines += [f"### {scenario['name']}", "",
-                  f"- Query: `{scenario['query']}`",
-                  f"- Wardrobe: {scenario['wardrobe']}", ""]
+        lines += [f"### {scenario['name']}", ""]
+        if scenario.get("queries"):
+            lines += [
+                "- Query variants (one per try):",
+                *[f"  - `{query}`" for query in scenario["queries"]],
+                f"- Wardrobe: {scenario['wardrobe']}",
+                "",
+            ]
+        else:
+            lines += [
+                f"- Query: `{scenario['query']}`",
+                f"- Wardrobe: {scenario['wardrobe']}",
+                "",
+            ]
         if scenario.get("fixed_outfit") is not None:
             lines += [f"- Fixed outfit input: `{scenario['fixed_outfit']}`", ""]
 
         for i, record in enumerate(row["tries"], 1):
             lines.append(f"**Try {i}**")
             lines.append("")
+            if scenario.get("queries"):
+                lines += [f"- Query: `{record['query']}`", ""]
 
             if record["crashed"]:
                 lines += ["Crashed:", "", "```", record["crashed"], "```", ""]

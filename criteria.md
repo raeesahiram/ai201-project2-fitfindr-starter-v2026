@@ -29,6 +29,14 @@ tool calls and returns a fit card — in at least 4 of 5 tries.
 I chose 4 of 5 because the search uses plain keyword matching, so a valid
 request can still miss when its phrasing does not overlap the listing data.
 
+> **Revised in unit 4:** Given five distinct queries that each match at least
+> one listing, the agent completes all three tools and returns a fit card in 5
+> of 5 tries.
+>
+> **Why revised:** The original evaluation repeated one matching query, so it
+> did not test the phrasing sensitivity named in the rationale. Five different
+> matching phrasings make that risk observable.
+
 ---
 
 ## 2. An impossible query stops before the second tool
