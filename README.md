@@ -143,7 +143,7 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
 
 ## How I Used AI
 
-<!-- Three specific moments. What you asked, what came back, what you changed.
+<!-- Four specific moments. What you asked, what came back, what you changed.
 
      "I used Claude to help me code" is not enough.
 
@@ -177,6 +177,16 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
 - *What I changed:* I preserved the original criterion and added a revised
      five-of-five target over five distinct matching phrasings. I updated the
      scenario runner to use one phrasing per try, then checked the after report.
+
+**Moment 4**
+
+- *What I asked for:* I asked AI to check whether the printed trace showed the
+     actual inputs needed to understand each tool call.
+- *What came back:* It found that dictionary inputs were reduced to key names,
+     even though `trace.step()` received the full values.
+- *What I changed:* I updated `trace.py::_short` to show parsed search values,
+     the selected listing ID and title, wardrobe item count, and a short outfit
+     excerpt, then refreshed the README trace sample.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
@@ -290,13 +300,14 @@ No misses: all five criteria met their targets. Criterion 1 was the one to tight
 
 ```
 [1] search_listings (via MCP)
-     in:  dict with keys: description, size, max_price
+     in:  description='vintage graphic tee', size=None, max_price=30.0
      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
 [2] suggest_outfit
-     in:  dict with keys: new_item, wardrobe
+     in:  new_item=lst_002 Y2K Baby Tee — Butterfly Print; wardrobe.items=10
      out: Here are two complete outfits featuring your new Y2K baby tee:  **Outfit 1: Y2K Streetwear (Casual & Cool)** *…
+      →    new_item id=lst_002
 [3] create_fit_card
-     in:  dict with keys: outfit, new_item
+     in:  new_item=lst_002 Y2K Baby Tee — Butterfly Print; outfit=Here are two complete outfits featuring your new Y2K b…
      out: Scored this dreamy butterfly baby tee for just $18 on Depop and I am obsessed. I paired the cropped fit with b…
 ```
 
@@ -304,7 +315,7 @@ No misses: all five criteria met their targets. Criterion 1 was the one to tight
 
 ```
 [1] search_listings (via MCP)
-     in:  dict with keys: description, size, max_price
+     in:  description='qzxv blorptastic nebuloid quuxorium', size=None, max_price=None
      out: [] (empty)
      →    empty; stopping
 ```
@@ -370,6 +381,32 @@ Criterion 1, try 1 — `tools.py::create_fit_card`:
 
 ```
 Scored this adorable Y2K butterfly baby tee for just $18 on depop and I'm obsessed with the early 2000s fit. Paired it today with baggy straight-leg jeans and a black denim jacket for the ultimate off-duty streetwear look.
+```
+
+Criterion 2 — error returned by `agent.py::run_agent`, captured in the after report:
+
+```
+No listings matched. Try a broader description, a different size, or a higher maximum price.
+```
+
+Criterion 3 — selected item and `trace.py::step` output from `agent.py::run_agent`:
+
+```
+selected_item: lst_005 — Corduroy Wide-Leg Pants — Rust ($32.0, depop)
+[2] suggest_outfit
+     →    new_item id=lst_005
+```
+
+Criterion 4 — `tools.py::create_fit_card` with the fixed outfit input recorded in the after report:
+
+```
+Found this absolute dream of a 90s floral midi on Depop for just $30, and I’m never taking it off. Threw on a chunky cream cardigan and black boots to lean into that moody cottagecore aesthetic. It’s giving effortless vintage romance for fall.
+```
+
+Criterion 5 — results from `tools.py::search_listings`, recorded by `run_eval.py::write_report`:
+
+```
+search_result_prices: lst_002=$18.0, lst_006=$24.0, lst_017=$15.0, lst_033=$19.0, lst_011=$27.0, lst_015=$26.0
 ```
 
 **Did it help, and how do I know:**

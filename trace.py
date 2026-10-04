@@ -83,9 +83,24 @@ def _short(value, limit: int = 110) -> str:
 
     if isinstance(value, dict):
         if "title" in value:
-            return f"{value.get('title')} (${value.get('price')}, {value.get('platform')})"
-        keys = ", ".join(list(value)[:6])
-        return f"dict with keys: {keys}"
+            return (
+                f"{value.get('id')} {value.get('title')} "
+                f"(${value.get('price')}, {value.get('platform')})"
+            )
+        if "new_item" in value and "wardrobe" in value:
+            item = value["new_item"]
+            wardrobe = value["wardrobe"]
+            return (
+                f"new_item={item.get('id')} {item.get('title')}; "
+                f"wardrobe.items={len(wardrobe.get('items', []))}"
+            )
+        if "new_item" in value and "outfit" in value:
+            item = value["new_item"]
+            outfit = str(value["outfit"]).replace("\n", " ")
+            text = f"new_item={item.get('id')} {item.get('title')}; outfit={outfit}"
+            return text if len(text) <= limit else text[:limit] + "…"
+        fields = ", ".join(f"{key}={item!r}" for key, item in value.items())
+        return fields if len(fields) <= limit else fields[:limit] + "…"
 
     text = str(value).replace("\n", " ")
     return text if len(text) <= limit else text[:limit] + "…"
