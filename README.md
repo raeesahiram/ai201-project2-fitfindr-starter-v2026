@@ -143,7 +143,7 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
+<!-- Three specific moments. What you asked, what came back, what you changed.
 
      "I used Claude to help me code" is not enough.
 
@@ -167,6 +167,16 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
      path left `fit_card` as `None` and returned an actionable error.
 - *What I changed:* I made each tool read its input back from the session and
      added the explicit early-stop branch for an empty search result.
+
+**Moment 3**
+
+- *What I asked for:* I asked AI to compare the before-run evidence with the
+     criterion rationale and suggest one improvement.
+- *What came back:* It noticed criterion 1 repeated one query five times even
+     though its rationale concerned keyword phrasing sensitivity.
+- *What I changed:* I preserved the original criterion and added a revised
+     five-of-five target over five distinct matching phrasings. I updated the
+     scenario runner to use one phrasing per try, then checked the after report.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
@@ -304,8 +314,11 @@ behaved differently afterwards. If the rewire didn't work, say exactly where it
 broke — the error text and the last thing that worked. That earns the point in
 full. -->
 
-`run_agent()` calls `search_listings` through `mcp_client.call_tool`. The MCP
-call returned the same list of listing dicts as the direct implementation.
+`mcp_server.py` registers `search_listings` with typed inputs, and
+`agent.py::run_agent` calls it through `mcp_client.call_tool`. A direct-versus-
+MCP check returned the same 10 listing dicts; an end-to-end query also completed
+the outfit and fit-card steps. I observed no result-shape or user-visible
+behavior change after the move.
 
 **Failure checks**
 
@@ -375,6 +388,12 @@ It helped the test coverage, not agent behavior: completion stayed 5/5, now acro
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
 
+No criterion was missed in the after run, so there is no target-specific fix
+left open. Coverage is still narrow: criterion 1 tested five phrases, criterion
+4 tested one item and fixed outfit, and criterion 5 tested one $30 ceiling.
+I would add more phrases, items, and price ceilings before treating these
+results as broad reliability evidence; I stopped at the course's five-try
+requirement. This unit changed the evaluation design, not agent behavior.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
