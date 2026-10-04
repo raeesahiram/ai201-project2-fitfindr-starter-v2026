@@ -32,6 +32,7 @@ import argparse
 import datetime as dt
 import sys
 import traceback
+from unittest.mock import patch
 
 import config
 import scenarios as scenario_module
@@ -52,7 +53,12 @@ def run_once(scenario, use_trace=True):
 
     record = {"error": None, "session": None, "trace": "", "crashed": None}
     try:
-        record["session"] = run_agent(scenario["query"], wardrobe)
+        fixed_outfit = scenario.get("fixed_outfit")
+        if fixed_outfit is None:
+            record["session"] = run_agent(scenario["query"], wardrobe)
+        else:
+            with patch("agent.suggest_outfit", return_value=fixed_outfit):
+                record["session"] = run_agent(scenario["query"], wardrobe)
     except Exception as exc:  # noqa: BLE001 — a crash is a result worth logging
         record["crashed"] = f"{type(exc).__name__}: {exc}"
         record["traceback"] = traceback.format_exc()
@@ -175,6 +181,8 @@ def write_report(rows, args):
         lines += [f"### {scenario['name']}", "",
                   f"- Query: `{scenario['query']}`",
                   f"- Wardrobe: {scenario['wardrobe']}", ""]
+        if scenario.get("fixed_outfit") is not None:
+            lines += [f"- Fixed outfit input: `{scenario['fixed_outfit']}`", ""]
 
         for i, record in enumerate(row["tries"], 1):
             lines.append(f"**Try {i}**")
@@ -186,11 +194,16 @@ def write_report(rows, args):
 
             session = record["session"] or {}
             item = session.get("selected_item") or {}
+            result_prices = ", ".join(
+                f"{listing.get('id')}=${listing.get('price')}"
+                for listing in session.get("search_results") or []
+            )
             lines += [
                 f"- stopped early: {'yes — ' + str(session.get('error')) if session.get('error') else 'no'}",
-                f"- selected_item: {item.get('title', '(none)')}"
+                f"- selected_item: {item.get('id', '(none)')} — {item.get('title', '(none)')}"
                 + (f" (${item.get('price')}, {item.get('platform')})" if item else ""),
                 f"- search_results: {len(session.get('search_results') or [])}",
+                f"- search_result_prices: {result_prices or '(none)'}",
                 "",
             ]
             if session.get("outfit_suggestion"):

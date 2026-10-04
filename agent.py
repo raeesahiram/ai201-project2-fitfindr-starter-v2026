@@ -180,6 +180,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             "suggest_outfit",
             inputs=outfit_inputs,
             returned=session["outfit_suggestion"],
+            note=f"new_item id={selected_item.get('id')}",
         )
 
         outfit_suggestion = session["outfit_suggestion"]

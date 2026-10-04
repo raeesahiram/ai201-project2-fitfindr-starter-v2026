@@ -188,20 +188,47 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item ID reaches outfit tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card facts and length | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Search respects price ceiling | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+**Real output from one try per criterion**
+
+Source report: `results/run_2026-10-04_1829_before.md` (`run_eval.py::write_report`).
+
+Criterion 1 — session from `agent.py::run_agent`; card from `tools.py::create_fit_card`:
 
 ```
-
+Scored this adorable Y2K butterfly baby tee for just $18 on depop, and it immediately unlocked my inner 2000s pop star. I paired the cropped fit with wide-leg trousers and chunky sneakers for an easy, vintage-leaning coffee run look. Seriously obsessed with how well this fits!
 ```
 
----
+Criterion 2 — error returned by `agent.py::run_agent`:
+
+```
+No listings matched. Try a broader description, a different size, or a higher maximum price.
+```
+
+Criterion 3 — selected item and `trace.py::step` output from `agent.py::run_agent`:
+
+```
+selected_item: lst_005 — Corduroy Wide-Leg Pants — Rust ($32.0, depop)
+[2] suggest_outfit
+     →    new_item id=lst_005
+```
+
+Criterion 4 — `tools.py::create_fit_card` with the fixed outfit input recorded in the report:
+
+```
+Scored this dreamy 90s floral midi slip dress on Depop for just $30 and I am completely obsessed. Layered it under a chunky cream cardigan with some worn-in black boots for the ultimate grunge-cottagecore mix. Honestly, it's giving pure autumn romance.
+```
+
+Criterion 5 — `tools.py::search_listings` results recorded by `run_eval.py::write_report`:
+
+```
+search_result_prices: lst_002=$18.0, lst_006=$24.0, lst_017=$15.0, lst_033=$19.0, lst_011=$27.0, lst_015=$26.0
+```
 
 ## Verdicts and Diagnoses
 
