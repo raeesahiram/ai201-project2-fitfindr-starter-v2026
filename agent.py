@@ -141,6 +141,12 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["search_results"] = call_tool(
             "search_listings", session["parsed"]
         )
+        trace.step(
+            "search_listings (via MCP)",
+            inputs=session["parsed"],
+            returned=session["search_results"],
+            note="empty; stopping" if not session["search_results"] else "",
+        )
 
         if not session["search_results"]:
             session["error"] = (
@@ -151,11 +157,52 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
         session["selected_item"] = session["search_results"][0]
         selected_item = session["selected_item"]
-        session["outfit_suggestion"] = suggest_outfit(
-            selected_item, session["wardrobe"]
+        outfit_inputs = {
+            "new_item": selected_item,
+            "wardrobe": session["wardrobe"],
+        }
+        try:
+            session["outfit_suggestion"] = suggest_outfit(
+                selected_item, session["wardrobe"]
+            )
+        except ModelUnavailable as exc:
+            trace.step(
+                "suggest_outfit",
+                inputs=outfit_inputs,
+                returned=f"ModelUnavailable: {exc}",
+                note="stopping: model unavailable",
+            )
+            session["error"] = (
+                f"The model couldn't provide outfit advice. {exc}"
+            )
+            return session
+        trace.step(
+            "suggest_outfit",
+            inputs=outfit_inputs,
+            returned=session["outfit_suggestion"],
         )
+
         outfit_suggestion = session["outfit_suggestion"]
-        session["fit_card"] = create_fit_card(outfit_suggestion, selected_item)
+        fit_card_inputs = {
+            "outfit": outfit_suggestion,
+            "new_item": selected_item,
+        }
+        try:
+            session["fit_card"] = create_fit_card(outfit_suggestion, selected_item)
+        except ModelUnavailable as exc:
+            trace.step(
+                "create_fit_card",
+                inputs=fit_card_inputs,
+                returned=f"ModelUnavailable: {exc}",
+                note="stopping: model unavailable",
+            )
+            session["error"] = f"The model couldn't create a fit card. {exc}"
+            return session
+        trace.step(
+            "create_fit_card",
+            inputs=fit_card_inputs,
+            returned=session["fit_card"],
+        )
         return session
 
 

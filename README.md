@@ -48,7 +48,6 @@ best match, it suggests outfits using the user's wardrobe and writes a short
 fit-card caption; if nothing matches, it stops with advice about what to
 change.
 
-
 ---
 
 ## Tool Inventory
@@ -251,13 +250,24 @@ that produced it:
 **Happy path**
 
 ```
-
+[1] search_listings (via MCP)
+     in:  dict with keys: description, size, max_price
+     out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+[2] suggest_outfit
+     in:  dict with keys: new_item, wardrobe
+     out: Here are two complete outfits featuring your new Y2K baby tee:  **Outfit 1: Y2K Streetwear (Casual & Cool)** *…
+[3] create_fit_card
+     in:  dict with keys: outfit, new_item
+     out: Scored this dreamy butterfly baby tee for just $18 on Depop and I am obsessed. I paired the cropped fit with b…
 ```
 
 **Empty search**
 
 ```
-
+[1] search_listings (via MCP)
+     in:  dict with keys: description, size, max_price
+     out: [] (empty)
+     →    empty; stopping
 ```
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
@@ -265,6 +275,22 @@ behaved differently afterwards. If the rewire didn't work, say exactly where it
 broke — the error text and the last thing that worked. That earns the point in
 full. -->
 
+`run_agent()` calls `search_listings` through `mcp_client.call_tool`. The MCP
+call returned the same list of listing dicts as the direct implementation.
+
+**Failure checks**
+
+- Empty search (`qzxv blorptastic nebuloid quuxorium`): “No listings matched.
+     Try a broader description, a different size, or a higher maximum price.” The
+     agent stopped after the MCP search.
+- Empty wardrobe (`python app.py ask 'vintage graphic tee under $30' --empty-wardrobe`): “Here are
+     two wearable, Y2K-inspired outfit ideas for your butterfly baby tee.” It
+     returned two general styling ideas and a non-empty fit card without crashing.
+- Model unavailable (`corduroy wide leg pants rust`, with a one-character key
+     change and cache disabled): “The model couldn't provide outfit advice. The
+     model rejected your API key. Check `GEMINI_API_KEY` in your `.env` file, or create
+     a fresh key at aistudio.google.com.” No stack trace was shown; `.env` was
+     restored and verified after the test.
 
 
 ---
