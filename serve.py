@@ -17,6 +17,7 @@ Two routes:
     POST /ask       {"query": "vintage graphic tee under $30",
                      "wardrobe": {...}}     ← wardrobe is optional
     GET  /health    is it awake?
+    GET  /metrics   request and model-use totals for this process
 
 `/ask` returns the session dict from `run_agent()` as JSON, unchanged — the
 same keys you print from the command line, including `error`. Read
@@ -27,15 +28,17 @@ web server has to be. The reason is worth reading before you deploy: see the
 note above `_one_at_a_time` below — it also decides which gunicorn worker you
 can use.
 
-⚠️ There is deliberately NO logging, NO timing and NO request counting in this
-file. That is unit 9's follow-along: you instrument this yourself, first, and
-then deploy it. A structured log you were handed teaches you nothing about
-what belongs in one — and the timing field is the one everybody skips.
+Each /ask request emits a JSON log line with a request ID, status, outcome,
+duration, queue wait, model calls, and tokens. GET /metrics exposes
+process-local totals, which reset when the process restarts.
 """
 
+import json
 import os
 import sys
 import threading
+import time
+import uuid
 
 # config first, and before anything that talks to the model: it loads your .env
 # and fixes the Windows console encoding for every module that imports it.
@@ -44,6 +47,8 @@ import config  # noqa: F401
 from flask import Flask, jsonify, request
 
 from agent import run_agent
+import generate
+import trace
 from utils.data_loader import get_example_wardrobe
 
 app = Flask(__name__)
@@ -89,12 +94,70 @@ app = Flask(__name__)
 #     gunicorn -k gevent serve:app    ← breaks every MCP call you make
 
 _one_at_a_time = threading.Lock()
+_metrics_lock = threading.Lock()
+_metrics = {
+    "requests": 0,
+    "failures": 0,
+    "duration_ms_total": 0.0,
+    "model_calls": 0,
+    "tokens": 0,
+}
+
+
+def _record_request(
+    request_id: str,
+    started_at: float,
+    status: int,
+    outcome: str,
+    model_calls: int = 0,
+    tokens: int = 0,
+    lock_wait_ms: float = 0.0,
+) -> None:
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    with _metrics_lock:
+        _metrics["requests"] += 1
+        _metrics["failures"] += int(outcome != "success")
+        _metrics["duration_ms_total"] += duration_ms
+        _metrics["model_calls"] += model_calls
+        _metrics["tokens"] += tokens
+
+    print(
+        json.dumps(
+            {
+                "event": "ask_request",
+                "request_id": request_id,
+                "status": status,
+                "outcome": outcome,
+                "duration_ms": duration_ms,
+                "lock_wait_ms": round(lock_wait_ms, 2),
+                "model_calls": model_calls,
+                "tokens": tokens,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        file=sys.stdout,
+        flush=True,
+    )
 
 
 @app.get("/health")
 def health():
     """Is the server awake? A host pings something like this to find out."""
     return jsonify({"status": "ok"})
+
+
+@app.get("/metrics")
+def metrics():
+    """Return process-local request and model usage counters."""
+    with _metrics_lock:
+        snapshot = dict(_metrics)
+    snapshot["duration_ms_avg"] = (
+        round(snapshot["duration_ms_total"] / snapshot["requests"], 2)
+        if snapshot["requests"]
+        else 0.0
+    )
+    return jsonify(snapshot)
 
 
 @app.post("/ask")
@@ -107,12 +170,25 @@ def ask():
                                                 example wardrobe the CLI uses.
     Out:  the session dict from run_agent(), as JSON.
     """
-    payload = request.get_json(silent=True) or {}
-    query = (payload.get("query") or "").strip()
+    started_at = time.perf_counter()
+    request_id = uuid.uuid4().hex[:12]
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        _record_request(request_id, started_at, 400, "invalid_request")
+        response = jsonify({"error": "Send a JSON object with a 'query' field."})
+        response.headers["X-Request-ID"] = request_id
+        return response, 400
+
+    query_value = payload.get("query")
+    query = query_value.strip() if isinstance(query_value, str) else ""
     if not query:
-        # 400 rather than a stack trace: the caller can act on this one.
-        return jsonify({"error": "Send JSON with a 'query' field, e.g. "
-                                 '{"query": "vintage graphic tee under $30"}'}), 400
+        _record_request(request_id, started_at, 400, "invalid_request")
+        response = jsonify({
+            "error": "Send JSON with a non-empty 'query' string, e.g. "
+                     '{"query": "vintage graphic tee under $30"}'
+        })
+        response.headers["X-Request-ID"] = request_id
+        return response, 400
 
     wardrobe = payload.get("wardrobe")
     if not isinstance(wardrobe, dict):
@@ -138,18 +214,52 @@ def ask():
 
     failure = None
     session = None
+    lock_started = time.perf_counter()
+    lock_wait_ms = 0.0
+    model_calls = 0
+    tokens = 0
     with _one_at_a_time:
+        lock_wait_ms = (time.perf_counter() - lock_started) * 1000
+        calls_before = generate.call_count()
+        tokens_before = generate.token_counts()["total"]
+        trace_output_enabled = trace.set_console_output(False)
         try:
             session = run_agent(query, wardrobe)
         except Exception as exc:  # noqa: BLE001 — a 500 with a sentence beats a hang
             failure = f"{type(exc).__name__}: {exc}"
+        finally:
+            model_calls = generate.call_count() - calls_before
+            tokens = generate.token_counts()["total"] - tokens_before
+            trace.set_console_output(trace_output_enabled)
+            trace.start_trace()
 
     # Outside the lock: building a response is not work the next caller should
     # be waiting on.
     if failure is not None:
-        return jsonify({"error": failure}), 500
+        _record_request(
+            request_id, started_at, 500, "exception",
+            model_calls, tokens, lock_wait_ms
+        )
+        response = jsonify({"error": failure})
+        response.headers["X-Request-ID"] = request_id
+        return response, 500
 
-    return jsonify(session)
+    if not isinstance(session, dict):
+        _record_request(
+            request_id, started_at, 500, "invalid_agent_response",
+            model_calls, tokens, lock_wait_ms
+        )
+        response = jsonify({"error": "The agent returned an unexpected response."})
+        response.headers["X-Request-ID"] = request_id
+        return response, 500
+
+    outcome = "agent_error" if session.get("error") else "success"
+    _record_request(
+        request_id, started_at, 200, outcome, model_calls, tokens, lock_wait_ms
+    )
+    response = jsonify(session)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 if __name__ == "__main__":

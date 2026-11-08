@@ -29,6 +29,7 @@ import config
 
 _lines: list[str] = []
 _step_number = 0
+_console_output_enabled = True
 
 
 def start_trace() -> None:
@@ -36,6 +37,14 @@ def start_trace() -> None:
     global _step_number
     _lines.clear()
     _step_number = 0
+
+
+def set_console_output(enabled: bool) -> bool:
+    """Set whether trace steps print and return the previous setting."""
+    global _console_output_enabled
+    previous = _console_output_enabled
+    _console_output_enabled = enabled
+    return previous
 
 
 def step(name: str, inputs=None, returned=None, note: str = "") -> None:
@@ -61,7 +70,8 @@ def step(name: str, inputs=None, returned=None, note: str = "") -> None:
         line += f"\n      →    {note}"
 
     _lines.append(line)
-    print(line, flush=True)
+    if _console_output_enabled:
+        print(line, flush=True)
 
 
 def get_trace() -> str:
