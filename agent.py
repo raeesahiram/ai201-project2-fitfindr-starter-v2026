@@ -14,12 +14,15 @@ Build and test your three tools in `tools.py` first. Then come here.
 """
 
 import re
+import time
 
 import config
 import trace
 from mcp_client import MCPError, call_tool
 from tools import suggest_outfit, create_fit_card
+import generate
 from generate import ModelUnavailable
+import run_logger
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -53,6 +56,40 @@ def new_session(query: str, wardrobe: dict) -> dict:
 # ── planning loop ─────────────────────────────────────────────────────────────
 
 def run_agent(query: str, wardrobe: dict) -> dict:
+    """Run the agent and persist a structured record for success or failure."""
+    started_at = time.perf_counter()
+    calls_before = generate.call_count()
+    tokens_before = generate.token_counts()
+    session = None
+    exception = None
+    try:
+        session = _run_agent(query, wardrobe)
+        return session
+    except Exception as exc:
+        exception = {"type": type(exc).__name__, "message": str(exc)}
+        raise
+    finally:
+        tokens_after = generate.token_counts()
+        items = wardrobe.get("items", []) if isinstance(wardrobe, dict) else []
+        run_logger.append_run_record(
+            {
+                "input": {
+                    "query": query,
+                    "wardrobe_item_count": len(items) if isinstance(items, list) else None,
+                },
+                "output": run_logger.summarize_session(session),
+                "exception": exception,
+                "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+                "model_usage": {
+                    "calls": generate.call_count() - calls_before,
+                    "prompt_tokens": tokens_after["prompt"] - tokens_before["prompt"],
+                    "output_tokens": tokens_after["output"] - tokens_before["output"],
+                },
+            }
+        )
+
+
+def _run_agent(query: str, wardrobe: dict) -> dict:
     """
     Run the loop once and return the finished session.
 
