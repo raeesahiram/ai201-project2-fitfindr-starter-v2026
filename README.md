@@ -477,14 +477,12 @@ served from the warm response cache; one run measured a rejected API-key
 failure and one measured an empty search. This average describes those
 conditions and is not a cold-cache Gemini latency estimate.
 
-## Shape B Criteria Run Log
+## Before Improvement: Shape B Criteria
 
-I ran all five criteria in three separate evaluation rounds. Each round writes
-to a fresh temporary JSONL file; the failure cases use simulated MCP/model
-failures, while the matching-flow trials use deterministic successful model
-helper responses with the actual MCP search path. The [evaluation output](results/criteria_eval.md)
-contains the full sampled records and the [harness](tests/evaluate_shape_b.py)
-shows how each criterion was measured.
+Before the improvement, all five criteria met their Milestone 4 targets in
+three rounds. Criterion 5 repeated the same matching query each time. The
+[before report](results/criteria_eval.md) contains the actual sampled
+responses and JSONL records.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---:|---:|---:|---:|---|
@@ -505,7 +503,12 @@ attempts in each independent evaluation round.
 | 2 | 5 / 5 | 5 / 10 | 10 |
 | 3 | 5 / 5 | 5 / 10 | 10 |
 
-### Actual output samples from Run 1
+No criterion was MISSED, so there is no failed criterion to diagnose by
+application stage or mechanism. The remaining evidence gap was narrower:
+criterion 5 tested only one matching phrase and one price ceiling, which is not
+enough to support broad claims about query variation.
+
+### Actual output samples from the before Run 1
 
 These are excerpts of the actual JSONL records written by
 `agent.py::run_agent` through `run_logger.py::append_run_record`; the complete
@@ -557,6 +560,68 @@ a live Gemini request, while each trial performs the actual MCP search and
 checks that the outfit and fit-card helpers run. A fresh provider request could
 not be verified because the configured Gemini key was rejected during the
 earlier clean-checkout run.
+
+## Improvement and After Results
+
+**One improvement:** I changed the criterion 5 evaluator to run five distinct
+matching phrasings with different price limits in each round instead of
+repeating one phrase. This targets the coverage gap above; it changes the
+evaluation, not the agent. The real MCP search runs for each phrase, while the
+outfit and fit-card helpers return deterministic success values. The
+[after report](results/criteria_eval_after.md) includes actual JSONL samples,
+and the updated [evaluation harness](tests/evaluate_shape_b.py) asserts the
+five distinct queries and their completion.
+
+| Criterion | Target | Before Run 1 | Before Run 2 | Before Run 3 | Before verdict | After Run 1 | After Run 2 | After Run 3 | After verdict |
+|---|---:|---:|---:|---:|---|---:|---:|---:|---|
+| 1. Every run leaves a structured record | 10/10 | 10/10 | 10/10 | 10/10 | MET | 10/10 | 10/10 | 10/10 | MET |
+| 2. A stalled MCP search stops within its deadline | 5/5 | 5/5 | 5/5 | 5/5 | MET | 5/5 | 5/5 | 5/5 | MET |
+| 3. MCP transport and malformed results stop safely | 10/10 | 10/10 | 10/10 | 10/10 | MET | 10/10 | 10/10 | 10/10 | MET |
+| 4. Model failures are returned and logged | 10/10 | 10/10 | 10/10 | 10/10 | MET | 10/10 | 10/10 | 10/10 | MET |
+| 5. The existing matching flow still completes | 4/5 | 5/5 | 5/5 | 5/5 | MET | 5/5 | 5/5 | 5/5 | MET |
+
+### Actual output samples from the after Run 1
+
+These are excerpts from real JSONL records written by `agent.py::run_agent`
+through `run_logger.append_run_record`; the complete output for this round is
+in `results/criteria_eval_after.md`.
+
+**Criterion 1 — completed run:**
+
+```json
+{"timestamp":"2026-11-08T23:53:47.666+00:00","output":{"status":"completed"},"exception":null,"duration_ms":0.02}
+```
+
+**Criterion 2 — timeout:**
+
+```json
+{"timestamp":"2026-11-08T23:53:47.689+00:00","duration_ms":21.45,"output":{"status":"error","error":"Listing search is temporarily unavailable. Please try again."}}
+```
+
+**Criterion 3 — malformed MCP response:**
+
+```json
+{"timestamp":"2026-11-08T23:53:47.777+00:00","output":{"status":"error","error":"Listing search returned an unexpected response. Please try again."}}
+```
+
+**Criterion 4 — model returned blank output and logged one call:**
+
+```json
+{"timestamp":"2026-11-08T23:53:47.781+00:00","model_usage":{"calls":1,"prompt_tokens":0,"output_tokens":0},"output":{"status":"error","error":"The model couldn't provide outfit advice. The model returned an empty response. Please try again."}}
+```
+
+**Criterion 5 — a different matching phrase completed:**
+
+```json
+{"timestamp":"2026-11-08T23:53:48.238+00:00","input":{"query":"vintage graphic tee under $30","wardrobe_item_count":10},"output":{"status":"completed","error":null}}
+```
+
+After the improvement, all five matching phrases completed in each of the
+three rounds (15/15), rather than only repeating one phrase. All five criterion
+verdicts stayed MET. It improved the breadth of the evidence, not the agent's
+behavior; no regression appeared in this evaluation. The matching helper
+responses remain stubbed, and a fresh Gemini request is still unverified
+because the configured key was rejected.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
