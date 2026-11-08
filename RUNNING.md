@@ -24,6 +24,15 @@ cp .env.example .env
 # Edit .env and replace your_key_here with your Gemini API key.
 ```
 
+Check the environment and key before the first full run:
+
+```bash
+python test.py
+```
+
+This includes a live Gemini check. An expired or rejected key must be replaced
+with a working key; installing the Python packages alone cannot fix it.
+
 **Exact run command:**
 
 ```bash
