@@ -4,6 +4,45 @@ Everything about how the starter works and how to use it.
 
 ---
 
+## Reproduce the local Shape B run
+
+**Path:** local with logs. No hosted account, URL, or local model files are
+needed. Use Python 3.11, 3.12, or 3.13 and the bounded dependency versions in
+`requirements.txt` (`python-dotenv>=1.0,<1.2`, `google-genai>=1.0,<2.0`,
+`mcp>=1.0,<2.0`, `flask>=3.0,<4.0`, and `gunicorn>=21.2,<24.0`). The outfit
+tools call Gemini remotely, so you need internet access and a `GEMINI_API_KEY`;
+the listing data is included in `data/`.
+
+From a clean clone, create and activate the environment, install dependencies,
+and set your key in `.env`:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and replace your_key_here with your Gemini API key.
+```
+
+**Exact run command:**
+
+```bash
+python app.py ask 'vintage graphic tee under $30'
+```
+
+Each `run_agent()` invocation appends one JSON object to
+`results/agent_runs.jsonl`, including a UTC timestamp, query and wardrobe item
+count, summarized output, duration, model calls/tokens, and exception details.
+Handled no-result/model/MCP errors are logged as `output.status: "error"`;
+raised exceptions are recorded under `exception` and then re-raised. The log
+does not include wardrobe contents. The first run may make two Gemini API
+calls; identical later prompts may be served from the local cache.
+
+On Windows, activate with `.\.venv\Scripts\Activate.ps1` and copy the example
+with `copy .env.example .env`; the Python run command above stays the same.
+
+---
+
 ## Before your first class
 
 Setup happens **before class**. The [environment setup page](../pages/ide_setup)
@@ -62,9 +101,8 @@ python app.py ask 'vintage graphic tee under $30'
 > and substitutes nothing. You get results with no price ceiling and no error
 > saying so. Single quotes are literal in PowerShell, bash and zsh alike.
 
-That last one runs the loop. All three tools are stubs, so it will tell you the
-loop isn't built yet. **That's the correct starting position** — it runs, and it
-does nothing.
+That last one runs the existing three-tool agent and appends its run record to
+`results/agent_runs.jsonl`.
 
 ---
 
@@ -149,9 +187,9 @@ gunicorn serve:app
 | `gunicorn serve:app`, exactly | Not `-k gevent`, not `-k eventlet`, not wrapped for uvicorn. `mcp_client.call_tool` uses `asyncio.run()`, which won't start inside a running event loop, so an async worker breaks **every** MCP call — and only once you've deployed it |
 | The first request is slow | The free tier puts your app to sleep after about fifteen minutes of nothing. The next request wakes it up and waits for it — around a minute. Not a bug, and worth knowing before you demo it |
 
-`serve.py` ships with **no logging and no timing in it**, on purpose. You add
-that yourself in the follow-along, before you deploy — instrumenting first is
-the point of the session.
+Every agent invocation, including one made through `/ask`, also appends a
+structured record to `results/agent_runs.jsonl`. The HTTP service emits a
+separate request-level JSON log to its standard output.
 
 ---
 
@@ -161,7 +199,8 @@ the point of the session.
 |---|---|
 | `config.py` | Every setting worth changing — **TEMPERATURE and the cache are at the top** |
 | `tools.py` | Your three tools. **Stubs — you build these** |
-| `agent.py` | The planning loop and the session. **Stub — you build this** |
+| `agent.py` | The planning loop and the session |
+| `run_logger.py` | Appends structured success and failure records to `results/agent_runs.jsonl` |
 | `generate.py` | The only thing that calls out to a service. Handles pacing and quota |
 | `trace.py` | The trace helper, and the loop's stop condition |
 | `app.py` | The command line |
@@ -217,7 +256,6 @@ is the most common architectural failure in production agents.
 
 | What you see | What it means |
 |---|---|
-| `The planning loop isn't built yet` | Correct, at the start. That's the TODO in `agent.py` |
 | `No GEMINI_API_KEY found` | No `.env`, or the key wasn't pasted in. On Windows check it didn't save as `.env.txt` |
 | A message saying the model couldn't be reached | Usually a bad key. This is also **exactly what unit 4 Milestone 2 asks you to trigger on purpose** |
 | `[rate limit] ... Waiting 34s` | Working as intended. Leave it |

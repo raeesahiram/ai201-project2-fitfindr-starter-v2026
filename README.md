@@ -442,6 +442,25 @@ I’m extending the existing FitFindr agent with Shape B: stronger handling for 
 
 **Size check:** I estimate 60–75 minutes to implement the bounded failure handling and request instrumentation using the existing MCP, model, and HTTP paths. The local run command and committed run record, acceptance criteria, focused testing, and write-up are separate unit work; no new service or model is needed.
 
+## Instrumentation
+
+Each agent run appends a JSONL record to `results/agent_runs.jsonl`. The record
+contains a UTC timestamp, query, wardrobe item count, summarized output or
+exception, elapsed milliseconds, model-call count, and prompt/output tokens.
+Below are ten records from runs using the documented local command; one
+no-results run is included to show that handled failures are recorded too.
+
+<!-- Paste ten actual JSONL records here after running the clean-checkout test. -->
+
+## What It Costs
+
+I measure one run's wall-clock duration using the logger's `duration_ms` field.
+For ten runs, I will report the arithmetic mean of those ten recorded values;
+this measures the complete local run path, including MCP startup and the
+configured model cache, rather than estimating from a pricing page.
+
+<!-- Add the ten-run mean from results/agent_runs.jsonl after the runs. -->
+
 <!-- ═════════════════════════════════════════════════════════════════════
 
      SUBMISSION CHECKLIST — unit 3
