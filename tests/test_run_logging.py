@@ -71,6 +71,28 @@ class RunLoggingTests(unittest.TestCase):
         self.assertEqual(record["exception"]["type"], "RuntimeError")
         self.assertEqual(record["exception"]["message"], "MCP down")
 
+    def test_handled_agent_error_is_recorded_in_output(self):
+        session = {
+            "error": "No listings matched. Try a broader description.",
+            "selected_item": None,
+            "outfit_suggestion": None,
+            "fit_card": None,
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "runs.jsonl"
+            with (
+                patch.object(run_logger, "RUN_LOG", log_path),
+                patch.object(agent, "_run_agent", return_value=session),
+            ):
+                agent.run_agent("impossible query", {"items": []})
+
+            record = json.loads(log_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(record["output"]["status"], "error")
+        self.assertEqual(record["output"]["error"], session["error"])
+        self.assertIsNone(record["exception"])
+
 
 if __name__ == "__main__":
     unittest.main()
