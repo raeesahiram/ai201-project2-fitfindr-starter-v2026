@@ -477,6 +477,76 @@ served from the warm response cache; one run measured a rejected API-key
 failure and one measured an empty search. This average describes those
 conditions and is not a cold-cache Gemini latency estimate.
 
+## Shape B Criteria Run Log
+
+I ran all five criteria in three separate evaluation rounds. Each round writes
+to a fresh temporary JSONL file; the failure cases use simulated MCP/model
+failures, while the matching-flow trials use deterministic successful model
+helper responses with the actual MCP search path. The [evaluation output](results/criteria_eval.md)
+contains the full sampled records and the [harness](tests/evaluate_shape_b.py)
+shows how each criterion was measured.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---:|---:|---:|---:|---|
+| 1. Every run leaves a structured record | 10/10 | 10/10 | 10/10 | 10/10 | MET |
+| 2. A stalled MCP search stops within its deadline | 5/5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. MCP transport and malformed results stop safely | 10/10 | 10/10 | 10/10 | 10/10 | MET |
+| 4. Model failures are returned and logged | 10/10 | 10/10 | 10/10 | 10/10 | MET |
+| 5. The existing matching flow still completes | 4/5 | 5/5 | 5/5 | 5/5 | MET |
+
+### Actual output samples from Run 1
+
+These are excerpts of the actual JSONL records written by
+`agent.py::run_agent` through `run_logger.py::append_run_record`; the complete
+sample records are in `results/criteria_eval.md`.
+
+**Criterion 1 — completed, handled-error, and raised-exception records**
+(`tests/evaluate_shape_b.py::_criterion_one`):
+
+```json
+{"timestamp":"2026-11-08T23:47:29.140+00:00","input":{"query":"criterion one run 1","wardrobe_item_count":10},"output":{"status":"completed"},"exception":null,"duration_ms":0.02}
+{"timestamp":"2026-11-08T23:47:29.140+00:00","input":{"query":"criterion one run 5","wardrobe_item_count":10},"output":{"status":"error","error":"Handled test failure"},"exception":null,"duration_ms":0.01}
+{"timestamp":"2026-11-08T23:47:29.141+00:00","input":{"query":"criterion one run 8","wardrobe_item_count":10},"output":null,"exception":{"type":"RuntimeError","message":"Raised test failure 7"},"duration_ms":0.01}
+```
+
+**Criterion 2 — timed-out MCP search**
+(`tests/evaluate_shape_b.py::_criterion_two`; test deadline set to 20 ms):
+
+```json
+{"error":"Listing search is temporarily unavailable. Please try again."}
+{"timestamp":"2026-11-08T23:47:29.163+00:00","duration_ms":21.56,"output":{"status":"error","error":"Listing search is temporarily unavailable. Please try again."}}
+```
+
+**Criterion 3 — transport and malformed-response failures**
+(`tests/evaluate_shape_b.py::_criterion_three`):
+
+```json
+{"error":"Listing search is temporarily unavailable. Please try again."}
+{"error":"Listing search returned an unexpected response. Please try again."}
+```
+
+**Criterion 4 — blank model output and exhausted rate limit**
+(`tests/evaluate_shape_b.py::_criterion_four`):
+
+```json
+{"error":"The model couldn't provide outfit advice. The model returned an empty response. Please try again."}
+{"error":"The model couldn't provide outfit advice. Still rate limited after 2 attempts. Wait a minute and try again — your key is fine.\nLast error: 429 rate limit"}
+```
+
+**Criterion 5 — matching flow completion**
+(`tests/evaluate_shape_b.py::_criterion_five`):
+
+```json
+{"error":null,"selected_item_id":"lst_002","outfit_suggestion_present":true,"fit_card_present":true}
+{"timestamp":"2026-11-08T23:47:29.711+00:00","duration_ms":449.39,"model_usage":{"calls":0,"prompt_tokens":0,"output_tokens":0},"output":{"status":"completed","error":null}}
+```
+
+The matching-path output uses deterministic model-helper responses rather than
+a live Gemini request, while each trial performs the actual MCP search and
+checks that the outfit and fit-card helpers run. A fresh provider request could
+not be verified because the configured Gemini key was rejected during the
+earlier clean-checkout run.
+
 <!-- ═════════════════════════════════════════════════════════════════════
 
      SUBMISSION CHECKLIST — unit 3
