@@ -315,11 +315,17 @@ def generate(
             response = client.models.generate_content(**kwargs)
             _record_tokens(response)
             text = (response.text or "").strip()
+            if not text:
+                raise ModelUnavailable(
+                    "The model returned an empty response. Please try again."
+                )
 
             if use_cache:
                 _cache_write(key, text)
             return text
 
+        except ModelUnavailable:
+            raise
         except Exception as exc:  # noqa: BLE001 — surfaced below
             last_error = exc
             message = str(exc).lower()
@@ -340,7 +346,7 @@ def generate(
             )
             time.sleep(backoff)
 
-    raise RuntimeError(
+    raise ModelUnavailable(
         f"Still rate limited after {config.MAX_RETRIES} attempts. Wait a "
         f"minute and try again — your key is fine.\nLast error: {last_error}"
     )
