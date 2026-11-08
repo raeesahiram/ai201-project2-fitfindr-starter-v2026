@@ -432,6 +432,15 @@ I would add more phrases, items, and price ceilings before treating these
 results as broad reliability evidence; I stopped at the course's five-try
 requirement. This unit changed the evaluation design, not agent behavior.
 
+---
+
+## The Shape
+
+I’m extending the existing FitFindr agent with Shape B: stronger handling for failures such as an MCP search timeout, an empty or malformed response, and model rate limits, so a failed step returns a clear error instead of breaking the run. I’ll keep it local and document one command that starts the system, then capture structured logs and basic request measurements from real runs in a committed run record; the README will also state the Python version, pinned dependencies, and any model requirements so someone else can reproduce it.
+
+**Out of scope:** I’m not adding another retrieval strategy, changing listing ranking or query parsing, or rebuilding the CLI/web interface. Those are independent capability and product changes; this extension is focused on making the existing run fail clearly and recoverably, with evidence from local runs.
+
+**Size check:** I estimate 60–75 minutes to implement the bounded failure handling and request instrumentation using the existing MCP, model, and HTTP paths. The local run command and committed run record, acceptance criteria, focused testing, and write-up are separate unit work; no new service or model is needed.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
