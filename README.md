@@ -188,6 +188,20 @@ Scored these classic Levi's 501s for just $38 on Depop and I'm honestly obsessed
      the selected listing ID and title, wardrobe item count, and a short outfit
      excerpt, then refreshed the README trace sample.
 
+**Moment 5**
+
+- *What I asked for:* I asked AI to run the five Shape B criteria three times
+     and check whether identical model-criterion results meant the trials had
+     actually run again.
+- *What came back:* The first report showed the same pass counts, but its
+     deterministic failure fixtures made the response text identical. The
+     JSONL records showed fresh model-helper calls: five blank-response calls
+     and ten rate-limit attempts in each round.
+- *What I changed:* I added assertions for those per-round model-call counts
+     and broadened the matching-flow evaluator to run five distinct queries
+     per round. I recorded separate before/after reports and stated that
+     model-helper success responses are stubs, not live Gemini results.
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
@@ -426,11 +440,16 @@ It helped the test coverage, not agent behavior: completion stayed 5/5, now acro
      left is not. -->
 
 No criterion was missed in the after run, so there is no target-specific fix
-left open. Coverage is still narrow: criterion 1 tested five phrases, criterion
-4 tested one item and fixed outfit, and criterion 5 tested one $30 ceiling.
-I would add more phrases, items, and price ceilings before treating these
-results as broad reliability evidence; I stopped at the course's five-try
-requirement. This unit changed the evaluation design, not agent behavior.
+left open. The live, uncached Gemini success path is still unverified: the key
+used for the clean-checkout run was rejected, so matching-path evaluator
+successes use deterministic outfit and fit-card helper responses. I stopped
+short of reporting live model quality, latency, or API spend because no valid
+key was available; all five criteria nevertheless met their stated targets.
+
+**Next:** First, configure a valid Gemini key and run the five distinct
+matching queries with cache disabled, recording response status, elapsed time,
+and token counts. That comes first because it would replace stubbed model
+evidence with real output and make the live per-user API cost measurable.
 
 ---
 
@@ -476,6 +495,12 @@ model cache, not an estimate from a pricing page. Eight successful runs were
 served from the warm response cache; one run measured a rejected API-key
 failure and one measured an empty search. This average describes those
 conditions and is not a cold-cache Gemini latency estimate.
+
+For 100 people making one request each per day, that measured workload is
+`0.798 seconds/run × 100 runs/day = 79.8 seconds/day` of local wall-clock
+execution across the runs. This is measured compute time, not a dollar bill:
+the Gemini key was rejected and successful warm-cache runs made zero model
+calls, so live Gemini API spend per user cannot be calculated from this sample.
 
 ## Before Improvement: Shape B Criteria
 
