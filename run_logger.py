@@ -11,6 +11,12 @@ RUN_LOG = config.RESULTS_DIR / "agent_runs.jsonl"
 _write_lock = threading.Lock()
 
 
+def _preview(value: str | None, limit: int = 180) -> str | None:
+    if value is None or len(value) <= limit:
+        return value
+    return value[:limit] + "..."
+
+
 def append_run_record(record: dict) -> None:
     """Append a JSON object as one durable, newline-delimited record."""
     entry = {
@@ -36,6 +42,6 @@ def summarize_session(session: dict | None) -> dict | None:
         "selected_item": {
             key: item.get(key) for key in ("id", "title", "price", "platform")
         } if item else None,
-        "outfit_suggestion": session.get("outfit_suggestion"),
+        "outfit_suggestion_preview": _preview(session.get("outfit_suggestion")),
         "fit_card": session.get("fit_card"),
     }

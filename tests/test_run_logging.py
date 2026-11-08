@@ -46,6 +46,10 @@ class RunLoggingTests(unittest.TestCase):
         self.assertEqual(record["input"]["query"], "graphic tee")
         self.assertEqual(record["output"]["status"], "completed")
         self.assertEqual(record["output"]["selected_item"]["id"], "lst_002")
+        self.assertEqual(
+            record["output"]["outfit_suggestion_preview"], "Wear with jeans."
+        )
+        self.assertEqual(record["output"]["fit_card"], "A great tee for $18 on Depop.")
         self.assertEqual(record["model_usage"]["prompt_tokens"], 20)
         self.assertEqual(record["model_usage"]["output_tokens"], 7)
         self.assertGreaterEqual(record["duration_ms"], 0)
