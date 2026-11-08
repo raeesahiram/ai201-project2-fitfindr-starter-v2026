@@ -494,6 +494,17 @@ shows how each criterion was measured.
 | 4. Model failures are returned and logged | 10/10 | 10/10 | 10/10 | 10/10 | MET |
 | 5. The existing matching flow still completes | 4/5 | 5/5 | 5/5 | 5/5 | MET |
 
+Criterion 4 has identical pass counts by design because each trial uses a
+deterministic failure fixture. I verified the trials were actually repeated:
+the structured records show five blank-response model calls and ten rate-limit
+attempts in each independent evaluation round.
+
+| Evaluation round | Blank-response trials / calls | Rate-limit trials / attempts | Criterion 4 run-log records |
+|---|---:|---:|---:|
+| 1 | 5 / 5 | 5 / 10 | 10 |
+| 2 | 5 / 5 | 5 / 10 | 10 |
+| 3 | 5 / 5 | 5 / 10 | 10 |
+
 ### Actual output samples from Run 1
 
 These are excerpts of the actual JSONL records written by
@@ -504,9 +515,9 @@ sample records are in `results/criteria_eval.md`.
 (`tests/evaluate_shape_b.py::_criterion_one`):
 
 ```json
-{"timestamp":"2026-11-08T23:47:29.140+00:00","input":{"query":"criterion one run 1","wardrobe_item_count":10},"output":{"status":"completed"},"exception":null,"duration_ms":0.02}
-{"timestamp":"2026-11-08T23:47:29.140+00:00","input":{"query":"criterion one run 5","wardrobe_item_count":10},"output":{"status":"error","error":"Handled test failure"},"exception":null,"duration_ms":0.01}
-{"timestamp":"2026-11-08T23:47:29.141+00:00","input":{"query":"criterion one run 8","wardrobe_item_count":10},"output":null,"exception":{"type":"RuntimeError","message":"Raised test failure 7"},"duration_ms":0.01}
+{"timestamp":"2026-11-08T23:50:17.255+00:00","input":{"query":"criterion one run 1","wardrobe_item_count":10},"output":{"status":"completed"},"exception":null,"duration_ms":0.02}
+{"timestamp":"2026-11-08T23:50:17.255+00:00","input":{"query":"criterion one run 5","wardrobe_item_count":10},"output":{"status":"error","error":"Handled test failure"},"exception":null,"duration_ms":0.01}
+{"timestamp":"2026-11-08T23:50:17.256+00:00","input":{"query":"criterion one run 8","wardrobe_item_count":10},"output":null,"exception":{"type":"RuntimeError","message":"Raised test failure 7"},"duration_ms":0.01}
 ```
 
 **Criterion 2 — timed-out MCP search**
@@ -514,7 +525,7 @@ sample records are in `results/criteria_eval.md`.
 
 ```json
 {"error":"Listing search is temporarily unavailable. Please try again."}
-{"timestamp":"2026-11-08T23:47:29.163+00:00","duration_ms":21.56,"output":{"status":"error","error":"Listing search is temporarily unavailable. Please try again."}}
+{"timestamp":"2026-11-08T23:50:17.278+00:00","duration_ms":21.5,"output":{"status":"error","error":"Listing search is temporarily unavailable. Please try again."}}
 ```
 
 **Criterion 3 — transport and malformed-response failures**
@@ -529,8 +540,8 @@ sample records are in `results/criteria_eval.md`.
 (`tests/evaluate_shape_b.py::_criterion_four`):
 
 ```json
-{"error":"The model couldn't provide outfit advice. The model returned an empty response. Please try again."}
-{"error":"The model couldn't provide outfit advice. Still rate limited after 2 attempts. Wait a minute and try again — your key is fine.\nLast error: 429 rate limit"}
+{"timestamp":"2026-11-08T23:50:17.370+00:00","model_usage":{"calls":1,"prompt_tokens":0,"output_tokens":0},"output":{"status":"error","error":"The model couldn't provide outfit advice. The model returned an empty response. Please try again."}}
+{"timestamp":"2026-11-08T23:50:17.373+00:00","model_usage":{"calls":2,"prompt_tokens":0,"output_tokens":0},"output":{"status":"error","error":"The model couldn't provide outfit advice. Still rate limited after 2 attempts. Wait a minute and try again — your key is fine.\nLast error: 429 rate limit"}}
 ```
 
 **Criterion 5 — matching flow completion**
@@ -538,7 +549,7 @@ sample records are in `results/criteria_eval.md`.
 
 ```json
 {"error":null,"selected_item_id":"lst_002","outfit_suggestion_present":true,"fit_card_present":true}
-{"timestamp":"2026-11-08T23:47:29.711+00:00","duration_ms":449.39,"model_usage":{"calls":0,"prompt_tokens":0,"output_tokens":0},"output":{"status":"completed","error":null}}
+{"timestamp":"2026-11-08T23:50:17.855+00:00","duration_ms":478.65,"model_usage":{"calls":0,"prompt_tokens":0,"output_tokens":0},"output":{"status":"completed","error":null}}
 ```
 
 The matching-path output uses deterministic model-helper responses rather than

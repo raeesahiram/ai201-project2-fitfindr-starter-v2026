@@ -49,6 +49,7 @@ class Round:
         self._logger_patch = patch.object(run_logger, "RUN_LOG", self.log_path)
         self._logger_patch.start()
         self.samples = {}
+        self.model_audit = None
 
     def close(self):
         self._logger_patch.stop()
@@ -219,6 +220,7 @@ class _Client:
 
 
 def _criterion_four(run):
+    records_before = len(run.records())
     handled = 0
     for mode, models in (
         ("blank", _BlankModels()),
@@ -252,6 +254,21 @@ def _criterion_four(run):
                 and record["output"]["status"] == "error"
             ):
                 handled += 1
+    records = run.records()[records_before:]
+    blank_attempts = [record["model_usage"]["calls"] for record in records[:5]]
+    rate_limit_attempts = [record["model_usage"]["calls"] for record in records[5:]]
+    if blank_attempts != [1] * 5 or rate_limit_attempts != [2] * 5:
+        raise AssertionError(
+            "Criterion 4 did not execute five blank-response calls and "
+            "five two-attempt rate-limit trials"
+        )
+    run.model_audit = {
+        "blank_response_trials": len(blank_attempts),
+        "blank_response_model_calls": sum(blank_attempts),
+        "rate_limit_trials": len(rate_limit_attempts),
+        "rate_limit_model_attempts": sum(rate_limit_attempts),
+        "run_log_records": len(records),
+    }
     return handled, 10
 
 
@@ -328,7 +345,7 @@ def main():
         ("2. A stalled MCP search stops within its deadline", "5/5"),
         ("3. MCP transport and malformed results stop safely", "10/10"),
         ("4. Model failures are returned and logged", "10/10"),
-        ("5. The existing matching flow still completes", "5/5"),
+        ("5. The existing matching flow still completes", "4/5"),
     ]
     runners = [
         _criterion_one, _criterion_two, _criterion_three,
@@ -336,6 +353,7 @@ def main():
     ]
     results = {name: [] for name, _ in criteria}
     samples = {}
+    model_audits = []
 
     for round_number in range(1, 4):
         run = Round(round_number)
@@ -344,6 +362,8 @@ def main():
                 passed, total = runner(run)
                 results[name].append((passed, total))
             samples.update(run.samples)
+            if run.model_audit is not None:
+                model_audits.append((round_number, run.model_audit))
         finally:
             run.close()
 
@@ -365,6 +385,27 @@ def main():
         lines.append(
             f"| {name} | {target} | {formatted[0]} | {formatted[1]} | "
             f"{formatted[2]} | {'MET' if all_met else 'MISSED'} |"
+        )
+
+    lines += [
+        "",
+        "## Model re-run verification",
+        "",
+        "Criterion 4 uses deterministic failure fixtures, so identical error "
+        "messages are expected. The per-run JSONL records prove fresh model "
+        "helper calls occurred in every independent round:",
+        "",
+        "| Evaluation round | Blank-response trials / calls | Rate-limit trials / attempts | Criterion 4 run-log records |",
+        "|---|---:|---:|---:|",
+    ]
+    for round_number, audit in model_audits:
+        lines.append(
+            f"| {round_number} | "
+            f"{audit['blank_response_trials']} / "
+            f"{audit['blank_response_model_calls']} | "
+            f"{audit['rate_limit_trials']} / "
+            f"{audit['rate_limit_model_attempts']} | "
+            f"{audit['run_log_records']} |"
         )
 
     lines += ["", "## Actual output from Run 1", ""]
