@@ -160,3 +160,70 @@ listing would make an otherwise relevant result unusable.
      A number you missed stays where it is, gets diagnosed, and gets a fix
      attempted. That's where the points are.
      ───────────────────────────────────────────────────────────────────────── -->
+
+---
+
+# Shape B — acceptance criteria for this unit
+
+The five numbered criteria below measure this unit's failure-handling and
+local-run instrumentation extension. The unit 3 criteria above are retained as
+the record of the original system's targets.
+
+## 1. Every run leaves a structured record
+
+For 10 runs covering completed output, handled agent errors, and raised
+exceptions, each invocation appends exactly one parseable JSONL record with a
+UTC timestamp, input query, output or exception, non-negative `duration_ms`,
+and model-call/token fields.
+
+**Why this target:** Ten entries let me verify both repeated append behavior
+and failure recording without treating one successful write as proof. The
+logger runs in `finally`, so exceptions must not disappear as missing records.
+
+## 2. A stalled MCP search stops within its deadline
+
+In 5 of 5 simulated stalled-search trials, the MCP call returns a
+`session["error"]` within `MCP_CALL_TIMEOUT_SECONDS + 1` seconds, records the
+failure, and does not call `suggest_outfit`.
+
+**Why this target:** A bounded wait is the point of the timeout; the extra
+second accounts for cancellation and cleanup after `asyncio.wait_for` fires.
+Without the stop-before-outfit check, a failed search could still pass invalid
+state down the loop.
+
+## 3. MCP transport and malformed results stop safely
+
+Across 5 transport-failure trials and 5 malformed-response trials, every run
+returns a non-empty session error, writes an error record, and makes zero calls
+to `suggest_outfit` or `create_fit_card`.
+
+**Why this target:** Transport failures and invalid shapes are distinct bad
+paths at the same tool boundary. Five repetitions of each check that neither
+can accidentally fall through to later tools.
+
+## 4. Model failures are returned and logged
+
+For 5 simulated blank model responses and 5 exhausted rate-limit retries, all
+10 agent runs return a non-empty `session["error"]`, leave `fit_card` unset,
+and append an `output.status` of `error` without an uncaught exception.
+
+**Why this target:** Blank output and exhausted 429 retries can both otherwise
+look like successful empty content or crash after waiting. Requiring all ten
+handled outcomes checks both the adapter and the agent's existing error path.
+
+## 5. The existing matching flow still completes
+
+With the model available, at least 4 of 5 matching-query runs complete search,
+outfit suggestion, and fit-card creation, return a non-empty `fit_card`, and
+write `output.status: "completed"` to the run log.
+
+**Why this target:** The external model can be temporarily unavailable, so 5
+of 5 would conflate provider uptime with regressions in the existing flow. Four
+successful runs still catches a change that breaks a normal matching request
+most of the time.
+
+**Self-check:** I checked these against the criteria self-check guidance:
+every item has an observable outcome and numeric target, each rationale ties
+the threshold to the MCP/model/logging behavior, and four of five criteria
+measure the extension. The course page redirects to a sign-in screen in this
+environment, so I could not submit them to the authenticated form itself.
