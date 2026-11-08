@@ -17,7 +17,7 @@ import re
 
 import config
 import trace
-from mcp_client import call_tool
+from mcp_client import MCPError, call_tool
 from tools import suggest_outfit, create_fit_card
 from generate import ModelUnavailable
 
@@ -138,9 +138,37 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             "max_price": float(price_match.group(1)) if price_match else None,
         }
         session["parsed"] = parsed
-        session["search_results"] = call_tool(
-            "search_listings", session["parsed"]
-        )
+        try:
+            results = call_tool("search_listings", session["parsed"])
+        except MCPError as exc:
+            trace.step(
+                "search_listings (via MCP)",
+                inputs=session["parsed"],
+                returned=f"MCPError: {exc}",
+                note="stopping: search unavailable",
+            )
+            session["error"] = (
+                "Listing search is temporarily unavailable. Please try again."
+            )
+            return session
+
+        if not isinstance(results, list) or any(
+            not isinstance(item, dict)
+            or not {"id", "title", "price", "platform", "size"}.issubset(item)
+            for item in results
+        ):
+            trace.step(
+                "search_listings (via MCP)",
+                inputs=session["parsed"],
+                returned=f"invalid result type: {type(results).__name__}",
+                note="stopping: unexpected search response",
+            )
+            session["error"] = (
+                "Listing search returned an unexpected response. Please try again."
+            )
+            return session
+
+        session["search_results"] = results
         trace.step(
             "search_listings (via MCP)",
             inputs=session["parsed"],

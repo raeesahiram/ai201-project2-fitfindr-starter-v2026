@@ -31,6 +31,8 @@ import json
 import sys
 from pathlib import Path
 
+import config
+
 SERVER = Path(__file__).parent / "mcp_server.py"
 
 
@@ -56,9 +58,19 @@ def call_tool(name: str, arguments: dict):
         MCPError, with something readable in it.
     """
     try:
-        return asyncio.run(_call(name, arguments))
+        return asyncio.run(
+            asyncio.wait_for(
+                _call(name, arguments),
+                timeout=config.MCP_CALL_TIMEOUT_SECONDS,
+            )
+        )
     except MCPError:
         raise
+    except asyncio.TimeoutError as exc:
+        raise MCPError(
+            f"Timed out calling '{name}' after "
+            f"{config.MCP_CALL_TIMEOUT_SECONDS} seconds. Please try again."
+        ) from exc
     except Exception as exc:  # noqa: BLE001 — re-raised readably below
         raise MCPError(
             f"Couldn't call '{name}' over MCP: {exc}\n"

@@ -57,6 +57,7 @@ CACHE_ENABLED = os.getenv("AI201_CACHE", "1") != "0"
 # Your loop this unit is short enough that you may never hit this. Keep it
 # anyway; it's the habit that matters.
 MAX_ITERATIONS = 10
+MCP_CALL_TIMEOUT_SECONDS = 15
 
 # How many search results to consider. The agent uses the first one.
 SEARCH_RESULT_LIMIT = 10
