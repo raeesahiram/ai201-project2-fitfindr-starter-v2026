@@ -13,8 +13,8 @@
 > python app.py ask 'vintage graphic tee under $30'
 > ```
 >
-> All three tools are stubs, so that last command will do nothing useful yet.
-> That's the starting position.
+> The tools are implemented: the command searches the included listings, then
+> asks Gemini for an outfit suggestion and fit-card caption.
 >
 > **The rest of this file is your submission.** Fill it in as you go.
 
@@ -362,7 +362,7 @@ behavior change after the move.
 
 ---
 
-## The Improvement
+## Earlier Improvement (Unit 4)
 
 <!-- What you changed, why your diagnosis pointed at it, and the after-run in
      the same table format. One change, measured properly.
@@ -453,6 +453,14 @@ evidence with real output and make the live per-user API cost measurable.
 
 ---
 
+## What This Extends
+
+This extends FitFindr, the existing secondhand-clothing search and outfit
+styling agent described above. Shape B adds bounded MCP search timeouts,
+user-facing handling for transport, malformed-result, and model failures, and
+structured per-run JSONL logging; it preserves the listing search, item
+selection, outfit suggestion, and fit-card flow.
+
 ## The Shape
 
 I’m extending the existing FitFindr agent with Shape B: stronger handling for failures such as an MCP search timeout, an empty or malformed response, and model rate limits, so a failed step returns a clear error instead of breaking the run. I’ll keep it local and document one command that starts the system, then capture structured logs and basic request measurements from real runs in a committed run record; the README will also state the Python version, pinned dependencies, and any model requirements so someone else can reproduce it.
@@ -460,6 +468,14 @@ I’m extending the existing FitFindr agent with Shape B: stronger handling for 
 **Out of scope:** I’m not adding another retrieval strategy, changing listing ranking or query parsing, or rebuilding the CLI/web interface. Those are independent capability and product changes; this extension is focused on making the existing run fail clearly and recoverably, with evidence from local runs.
 
 **Size check:** I estimate 60–75 minutes to implement the bounded failure handling and request instrumentation using the existing MCP, model, and HTTP paths. The local run command and committed run record, acceptance criteria, focused testing, and write-up are separate unit work; no new service or model is needed.
+
+## Running It
+
+I chose the local-with-logs path. From the configured Python environment, the
+exact command is `python app.py ask 'vintage graphic tee under $30'`; the
+Python-version, dependency, API-key, and setup requirements are in
+[RUNNING.md](RUNNING.md). It starts the existing local FitFindr flow and
+appends its run record to `results/agent_runs.jsonl`.
 
 ## Instrumentation
 
@@ -502,7 +518,7 @@ execution across the runs. This is measured compute time, not a dollar bill:
 the Gemini key was rejected and successful warm-cache runs made zero model
 calls, so live Gemini API spend per user cannot be calculated from this sample.
 
-## Before Improvement: Shape B Criteria
+## Run Log and Verdicts
 
 Before the improvement, all five criteria met their Milestone 4 targets in
 three rounds. Criterion 5 repeated the same matching query each time. The
@@ -586,7 +602,7 @@ checks that the outfit and fit-card helpers run. A fresh provider request could
 not be verified because the configured Gemini key was rejected during the
 earlier clean-checkout run.
 
-## Improvement and After Results
+## The Improvement
 
 **One improvement:** I changed the criterion 5 evaluator to run five distinct
 matching phrasings with different price limits in each round instead of
