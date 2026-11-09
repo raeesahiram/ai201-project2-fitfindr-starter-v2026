@@ -664,6 +664,16 @@ behavior; no regression appeared in this evaluation. The matching helper
 responses remain stubbed, and a fresh Gemini request is still unverified
 because the configured key was rejected.
 
+## Second Improvement and Operations Checks
+
+I will add per-stage duration measurement to the local run path, use three
+baseline runs to identify the largest controllable stage, make one targeted
+optimization there, then repeat three runs and a local 10×-rate load check.
+I will report both the local run command and any differences measured. I cannot
+create a hosted deployment by uploading this repository or its credentials to
+an external host in this environment, so the hosted path remains unavailable;
+I will document that limitation rather than claim a deployment.
+
 <!-- ═════════════════════════════════════════════════════════════════════
 
      SUBMISSION CHECKLIST — unit 3
