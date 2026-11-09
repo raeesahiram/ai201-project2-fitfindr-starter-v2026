@@ -666,13 +666,63 @@ because the configured key was rejected.
 
 ## Second Improvement and Operations Checks
 
-I will add per-stage duration measurement to the local run path, use three
-baseline runs to identify the largest controllable stage, make one targeted
-optimization there, then repeat three runs and a local 10×-rate load check.
-I will report both the local run command and any differences measured. I cannot
-create a hosted deployment by uploading this repository or its credentials to
-an external host in this environment, so the hosted path remains unavailable;
-I will document that limitation rather than claim a deployment.
+Before measuring, I committed this scope: add per-stage duration measurement,
+use three baseline runs to identify the largest controllable stage, make one
+targeted optimization, then repeat three runs and a local 10×-rate load check.
+No approved hosted deployment target was available, so no live URL was
+created; I will document that limitation rather than claim a deployment.
+
+### Measurements and outcome
+
+The measured bottleneck was the MCP subprocess startup and handshake for listing
+searches, so the second
+improvement caches successful `search_listings` results in a bounded,
+process-local 128-entry LRU. The dataset is bundled and static; a process
+restart clears the cache. Failed calls are never cached, and callers receive
+defensive copies.
+
+The benchmark runs the real MCP search and HTTP route with deterministic
+outfit/fit-card stubs because the configured Gemini key was rejected. These
+numbers are local control-flow and MCP timings, not live model latency.
+
+| Trial | Baseline total ms | Baseline MCP ms | After total ms | After MCP ms |
+|---:|---:|---:|---:|---:|
+| 1 | 901.34 | 899.897 | 445.71 | 445.240 |
+| 2 | 454.12 | 453.588 | 0.25 | 0.077 |
+| 3 | 451.46 | 450.891 | 0.18 | 0.069 |
+
+Baseline median total was 454.12 ms. After the cache, repeated identical
+queries took a 0.25 ms median (the first after-cache query was a miss); the
+improvement was 1816.5× by those medians in this run. The optimization helped
+repeated searches, not first-time searches.
+
+Baseline stage timings (three runs, milliseconds) showed query parsing at
+0.218/0.031/0.027, MCP search at 899.897/453.588/450.891, outfit helper at
+0.015/0.008/0.010, and fit-card helper at 0.008/0.006/0.006. Thus MCP
+startup/handshake dominated; helper times are stubs and must not be read as
+Gemini timing.
+
+For the local load observation, one normal request took 479.60 ms. Ten
+simultaneous identical requests completed in a 473.07 ms batch (21.14
+requests/second); all returned HTTP 200, with zero service failures. The
+first search in the burst took 460.364 ms inside the agent, and the next nine
+cached searches took a 0.079 ms median.
+Client response times remained about 467 ms because each request waited on
+the existing serial HTTP lock; the cache sped up agent execution but did not
+make the server concurrent. This is a local synthetic test, not a hosted load
+test.
+
+The CLI path is `python app.py ask 'vintage graphic tee under $30'`: it runs
+one interaction and writes the agent JSONL record. The HTTP app stays up,
+exposes `/ask`, serializes requests, and emits request-level metrics. The
+benchmark exercised it locally through an ephemeral Werkzeug server;
+`python serve.py` is its documented standalone local command, and
+`gunicorn serve:app` is the documented host-compatible command. There is no
+deployed URL: no hosted deployment was created, so the hosted run path remains
+unverified. [RUNNING.md](RUNNING.md) documents the local setup and host
+command; [the measured report](results/operations_check.md) contains the full
+stage and burst records, and [the harness](tests/measure_operations.py)
+reproduces them.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 

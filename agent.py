@@ -58,12 +58,13 @@ def new_session(query: str, wardrobe: dict) -> dict:
 def run_agent(query: str, wardrobe: dict) -> dict:
     """Run the agent and persist a structured record for success or failure."""
     started_at = time.perf_counter()
+    stage_durations_ms = {}
     calls_before = generate.call_count()
     tokens_before = generate.token_counts()
     session = None
     exception = None
     try:
-        session = _run_agent(query, wardrobe)
+        session = _run_agent(query, wardrobe, stage_durations_ms)
         return session
     except Exception as exc:
         exception = {"type": type(exc).__name__, "message": str(exc)}
@@ -80,6 +81,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 "output": run_logger.summarize_session(session),
                 "exception": exception,
                 "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+                "stage_durations_ms": stage_durations_ms,
                 "model_usage": {
                     "calls": generate.call_count() - calls_before,
                     "prompt_tokens": tokens_after["prompt"] - tokens_before["prompt"],
@@ -89,7 +91,11 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         )
 
 
-def _run_agent(query: str, wardrobe: dict) -> dict:
+def _run_agent(
+    query: str,
+    wardrobe: dict,
+    stage_durations_ms: dict[str, float] | None = None,
+) -> dict:
     """
     Run the loop once and return the finished session.
 
@@ -145,6 +151,8 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
       • A handler for ModelUnavailable, so a bad key produces a message rather
         than a stack trace. The import is already at the top of this file.
     """
+    if stage_durations_ms is None:
+        stage_durations_ms = {}
     session = new_session(query, wardrobe)
     iteration = 0
 
@@ -152,6 +160,7 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
         iteration += 1
         trace.check_iterations(iteration)
 
+        parse_started = time.perf_counter()
         price_match = re.search(
             r"\b(?:under|below|up to|less than)\s*\$?\s*(\d+(?:\.\d+)?)\b",
             query,
@@ -174,7 +183,11 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
             "size": size_match.group(1) if size_match else None,
             "max_price": float(price_match.group(1)) if price_match else None,
         }
+        stage_durations_ms["query_parse"] = round(
+            (time.perf_counter() - parse_started) * 1000, 3
+        )
         session["parsed"] = parsed
+        search_started = time.perf_counter()
         try:
             results = call_tool("search_listings", session["parsed"])
         except MCPError as exc:
@@ -188,6 +201,10 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
                 "Listing search is temporarily unavailable. Please try again."
             )
             return session
+        finally:
+            stage_durations_ms["mcp_search"] = round(
+                (time.perf_counter() - search_started) * 1000, 3
+            )
 
         if not isinstance(results, list) or any(
             not isinstance(item, dict)
@@ -226,6 +243,7 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
             "new_item": selected_item,
             "wardrobe": session["wardrobe"],
         }
+        outfit_started = time.perf_counter()
         try:
             session["outfit_suggestion"] = suggest_outfit(
                 selected_item, session["wardrobe"]
@@ -241,6 +259,10 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
                 f"The model couldn't provide outfit advice. {exc}"
             )
             return session
+        finally:
+            stage_durations_ms["suggest_outfit"] = round(
+                (time.perf_counter() - outfit_started) * 1000, 3
+            )
         trace.step(
             "suggest_outfit",
             inputs=outfit_inputs,
@@ -253,6 +275,7 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
             "outfit": outfit_suggestion,
             "new_item": selected_item,
         }
+        fit_card_started = time.perf_counter()
         try:
             session["fit_card"] = create_fit_card(outfit_suggestion, selected_item)
         except ModelUnavailable as exc:
@@ -264,6 +287,10 @@ def _run_agent(query: str, wardrobe: dict) -> dict:
             )
             session["error"] = f"The model couldn't create a fit card. {exc}"
             return session
+        finally:
+            stage_durations_ms["create_fit_card"] = round(
+                (time.perf_counter() - fit_card_started) * 1000, 3
+            )
         trace.step(
             "create_fit_card",
             inputs=fit_card_inputs,

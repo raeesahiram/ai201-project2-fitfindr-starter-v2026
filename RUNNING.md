@@ -45,7 +45,10 @@ count, summarized output, duration, model calls/tokens, and exception details.
 Handled no-result/model/MCP errors are logged as `output.status: "error"`;
 raised exceptions are recorded under `exception` and then re-raised. The log
 does not include wardrobe contents. The first run may make two Gemini API
-calls; identical later prompts may be served from the local cache.
+calls. The existing prompt-response cache may serve identical model prompts;
+successful identical listing searches are also cached separately in memory
+for this process, so a search-cache hit skips MCP startup but does not itself
+skip Gemini calls.
 
 On Windows, activate with `.\.venv\Scripts\Activate.ps1` and copy the example
 with `copy .env.example .env`; the Python run command above stays the same.
@@ -170,7 +173,12 @@ Useful flags on `ask`:
 
 Everything above exits when the command finishes. A host has nothing to keep
 running, so before you can deploy this you need something that stays up.
-`serve.py` is that: the same `run_agent()`, behind two HTTP routes.
+`serve.py` is that: the same `run_agent()`, behind HTTP routes for asking,
+health checks, and process metrics.
+
+**Deployment status:** there is no hosted instance or public URL for this
+repository. The HTTP app has been exercised locally; the host command below is
+deployment guidance, not evidence of a completed hosted deployment.
 
 On your machine:
 
@@ -192,6 +200,7 @@ gunicorn serve:app
 | `PORT` | The host tells your app which port to listen on by setting this. Both `serve.py` and `gunicorn` read it, and `serve.py` falls back to `5000` on your machine. Don't hard-code a port |
 | `POST /ask` | `{"query": "...", "wardrobe": {...}}` — wardrobe optional. Returns the session dict, `error` and all |
 | `GET /health` | Says `ok` if the app is awake |
+| `GET /metrics` | Returns process-local request, failure, and duration aggregates |
 | It answers one request at a time | On purpose. A second request waits for the first to finish, and prints `[serve] another request is still running` while it waits. An MCP tool call starts a whole second Python process, and the free tier's 512 MB has no room for two of those at once — and `generate.py`'s rate-limit counting assumes one caller. The reasoning is written out in `serve.py` |
 | `gunicorn serve:app`, exactly | Not `-k gevent`, not `-k eventlet`, not wrapped for uvicorn. `mcp_client.call_tool` uses `asyncio.run()`, which won't start inside a running event loop, so an async worker breaks **every** MCP call — and only once you've deployed it |
 | The first request is slow | The free tier puts your app to sleep after about fifteen minutes of nothing. The next request wakes it up and waits for it — around a minute. Not a bug, and worth knowing before you demo it |

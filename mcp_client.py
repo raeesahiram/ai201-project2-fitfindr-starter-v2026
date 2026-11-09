@@ -27,13 +27,20 @@ right trade for one unit.
 """
 
 import asyncio
+import copy
 import json
 import sys
+import threading
+from collections import OrderedDict
 from pathlib import Path
 
 import config
 
 SERVER = Path(__file__).parent / "mcp_server.py"
+_SEARCH_CACHE_MAX_ENTRIES = 128
+_search_cache = OrderedDict()
+_search_cache_lock = threading.Lock()
+_CACHE_MISS = object()
 
 
 class MCPError(RuntimeError):
@@ -57,8 +64,16 @@ def call_tool(name: str, arguments: dict):
     Raises:
         MCPError, with something readable in it.
     """
+    cache_key = _search_cache_key(name, arguments)
+    if cache_key is not None:
+        with _search_cache_lock:
+            cached = _search_cache.get(cache_key, _CACHE_MISS)
+            if cached is not _CACHE_MISS:
+                _search_cache.move_to_end(cache_key)
+                return copy.deepcopy(cached)
+
     try:
-        return asyncio.run(
+        result = asyncio.run(
             asyncio.wait_for(
                 _call(name, arguments),
                 timeout=config.MCP_CALL_TIMEOUT_SECONDS,
@@ -78,6 +93,29 @@ def call_tool(name: str, arguments: dict):
             f"    python mcp_server.py\n"
             f"If it exits immediately with an error, fix that before coming back here."
         ) from exc
+    if cache_key is not None:
+        with _search_cache_lock:
+            _search_cache[cache_key] = copy.deepcopy(result)
+            _search_cache.move_to_end(cache_key)
+            while len(_search_cache) > _SEARCH_CACHE_MAX_ENTRIES:
+                _search_cache.popitem(last=False)
+    return result
+
+
+def _search_cache_key(name: str, arguments: dict) -> str | None:
+    if name != "search_listings":
+        return None
+    try:
+        encoded = json.dumps(arguments, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
+    return encoded
+
+
+def clear_search_cache() -> None:
+    """Clear successful local listing-search results, primarily for tests."""
+    with _search_cache_lock:
+        _search_cache.clear()
 
 
 async def _call(name: str, arguments: dict):

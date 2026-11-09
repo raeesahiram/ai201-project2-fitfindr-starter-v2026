@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import agent
 import run_logger
+from utils.data_loader import load_listings
 
 
 class RunLoggingTests(unittest.TestCase):
@@ -92,6 +93,32 @@ class RunLoggingTests(unittest.TestCase):
         self.assertEqual(record["output"]["status"], "error")
         self.assertEqual(record["output"]["error"], session["error"])
         self.assertIsNone(record["exception"])
+
+    def test_completed_run_records_stage_durations(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "runs.jsonl"
+            with (
+                patch.object(run_logger, "RUN_LOG", log_path),
+                patch.object(agent, "call_tool", return_value=[load_listings()[1]]),
+                patch.object(agent, "suggest_outfit", return_value="Wear with jeans."),
+                patch.object(
+                    agent, "create_fit_card", return_value="A great tee for $18."
+                ),
+            ):
+                session = agent.run_agent(
+                    "vintage graphic tee under $30", {"items": []}
+                )
+
+            record = json.loads(log_path.read_text(encoding="utf-8"))
+
+        self.assertIsNone(session["error"])
+        self.assertEqual(
+            set(record["stage_durations_ms"]),
+            {"query_parse", "mcp_search", "suggest_outfit", "create_fit_card"},
+        )
+        self.assertTrue(
+            all(value >= 0 for value in record["stage_durations_ms"].values())
+        )
 
 
 if __name__ == "__main__":
